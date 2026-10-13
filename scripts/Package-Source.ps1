@@ -10,6 +10,12 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $Output = [IO.Path]::GetFullPath($Output)
 New-Item -ItemType Directory -Force -Path (Split-Path $Output -Parent) | Out-Null
+$resolvedArtifacts = [IO.Path]::GetFullPath((Join-Path $root 'out\x64\artifacts'))
+if (-not $Output.StartsWith($resolvedArtifacts + [IO.Path]::DirectorySeparatorChar,
+                            [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Source archive must be written inside $resolvedArtifacts"
+}
+if (Test-Path -LiteralPath $Output) { Remove-Item -LiteralPath $Output -Force }
 $files = @(git -C $root ls-files --recurse-submodules)
 if ($LASTEXITCODE -ne 0 -or $files.Count -eq 0) { throw 'Could not list source files.' }
 
