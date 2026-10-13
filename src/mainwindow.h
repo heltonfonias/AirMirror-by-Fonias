@@ -31,7 +31,10 @@ protected:
 
 private slots:
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
-    void toggleAutostart(bool checked);
+    void openSettingsDialog();
+    void startReceiver();
+    void stopReceiver();
+    void showFromTray();
     void showLicense();
     void openSettingsFile();
     void openListArgsFile();
@@ -40,24 +43,16 @@ private slots:
     void onAirplayStarted();
     void onAirplayStopped();
     void onAirplayError(const QString &message);
-    void toggleBle(bool checked); // bluetooth
-    void toggleForceFullscreen(bool checked);
-    void onRendererChanged(int index);
 
 
 private:
+    void migrateLegacySettings();
     void startServer();
     void stopServer();
     void setupTray();
     void setupUI();
     void updateStatus();
-    void startBluetoothBeacon(const QString &path);
-    void stopBluetoothBeacon();
-    void forwardBluetoothOutput(bool finished = false);
     void applyRendererAndFullscreenArgs(QStringList &args);
-
-    QProcess *m_beacon = nullptr;
-    QByteArray m_beaconOutput;
 
     QStringList getArgumentsFromFile();
     void ensureSettingsFileExists();
@@ -72,22 +67,23 @@ private:
     bool isAutostartEnabled() const;
     void setAutostart(bool enabled);
 
-    QCheckBox *m_bleCheckbox = nullptr;
-    QCheckBox *m_fullscreenCheckbox = nullptr;
-    QComboBox *m_rendererCombo = nullptr;
     QSystemTrayIcon *m_tray = nullptr;
     QMenu *m_trayMenu = nullptr;
-    QAction *m_statusAction = nullptr;
+    QAction *m_startAction = nullptr;
+    QAction *m_stopAction = nullptr;
 
-    QCheckBox *m_autostartCheckbox = nullptr;
     QPushButton *m_settingsBtn = nullptr;
-    QPushButton *m_listargsBtn = nullptr;
-    QPushButton *m_licenseBtn = nullptr;
     QLabel *m_statusLabel = nullptr;
+    QLabel *m_detailLabel = nullptr;
+    QLabel *m_connectLabel = nullptr;
+    QLabel *m_networkLabel = nullptr;
+    QPushButton *m_startButton = nullptr;
+    QPushButton *m_stopButton = nullptr;
 
     QPointer<AirPlayWorker> m_worker;
     QPointer<LogViewer> m_logViewer;
 
     bool m_running = false;
     bool m_quitting = false;
+    bool m_serverEnabled = true;
 };

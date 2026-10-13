@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "sessionlog.h"
+#include "windowappearance.h"
 #include <QApplication>
 #include <QDir>
 #include <QElapsedTimer>
@@ -35,12 +36,12 @@ static DWORD currentSessionId() {
 }
 
 static QString singleInstanceMutexName() {
-    return QStringLiteral("Local\\leapbtw.uxplay-windows.%1")
+    return QStringLiteral("Local\\Fonias.AirMirror.%1")
         .arg(currentSessionId());
 }
 
 static QString singleInstanceServerName() {
-    return QStringLiteral("leapbtw.uxplay-windows.%1")
+    return QStringLiteral("Fonias.AirMirror.%1")
         .arg(currentSessionId());
 }
 
@@ -84,12 +85,13 @@ static void activateWindow(MainWindow *window) {
 
 static int runRuntimeSelfTest(const QString &appPath) {
     QStringList requiredFiles = {
-        "uxplay-bluetooth-beacon.exe",
         "dnssd.dll",
         "mDNSResponder.exe",
         "platforms/qwindows.dll",
         "libexec/gstreamer-1.0/gst-plugin-scanner.exe",
         "resources/gstreamer-features.txt",
+        "resources/icon.ico",
+        "resources/icon.png",
         "resources/gstreamer-plugins.json",
         "resources/build-manifest.json",
         "resources/bundle-files.json"
@@ -175,8 +177,8 @@ int main(int argc, char *argv[]) {
     SessionLog sessionLog;
     const bool loggingReady = sessionLog.start();
     QApplication app(argc, argv);
-    app.setOrganizationName("leapbtw");
-    app.setApplicationName("uxplay-windows");
+    app.setOrganizationName("Fonias");
+    app.setApplicationName("AirMirror");
     app.setProperty("sessionLogPath", loggingReady ? sessionLog.path() : QString());
     if (!loggingReady) {
         QMessageBox::warning(nullptr, "Logging unavailable", sessionLog.errorString());
@@ -244,7 +246,7 @@ int main(int argc, char *argv[]) {
     if (!singleInstanceMutex) {
         QMessageBox::critical(
             nullptr,
-            "uxplay-windows",
+            "AirMirror by Fonias",
             QStringLiteral("Unable to create the single-instance lock "
                            "(Windows error %1).")
                 .arg(mutexError)
@@ -260,8 +262,8 @@ int main(int argc, char *argv[]) {
         if (!notified) {
             QMessageBox::critical(
                 nullptr,
-                "uxplay-windows",
-                "uxplay-windows is already running but did not respond."
+                "AirMirror by Fonias",
+                "AirMirror is already running but did not respond."
             );
             return 1;
         }
@@ -274,7 +276,7 @@ int main(int argc, char *argv[]) {
     if (!singleInstanceServer.listen(serverName)) {
         QMessageBox::critical(
             nullptr,
-            "uxplay-windows",
+            "AirMirror by Fonias",
             "Unable to create the single-instance communication pipe.\n\n" +
                 singleInstanceServer.errorString()
         );
@@ -329,6 +331,8 @@ int main(int argc, char *argv[]) {
             activateWindow(window);
         }
 #endif
+        mainWindow.show();
+        useAirMirrorTitleBar(&mainWindow);
         exitCode = app.exec();
 #ifdef _WIN32
         window.clear();
@@ -352,8 +356,8 @@ int main(int argc, char *argv[]) {
                 QCoreApplication::applicationFilePath(), arguments)) {
             QMessageBox::critical(
                 nullptr,
-                "uxplay-windows",
-                "Unable to restart uxplay-windows."
+                "AirMirror by Fonias",
+                "Unable to restart AirMirror."
             );
             return 1;
         }

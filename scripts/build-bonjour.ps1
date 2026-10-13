@@ -19,6 +19,7 @@ if (-not $ProjectRoot) {
 $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
 
 $msbuildPlatform = if ($Architecture -eq "arm64") { "ARM64" } else { "x64" }
+$platformToolset = if (Get-ChildItem -Path (Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\18\*\MSBuild\Microsoft\VC\v180\Platforms\x64\PlatformToolsets\v145') -ErrorAction SilentlyContinue) { 'v145' } else { 'v143' }
 $sourcePlatformDirectory = if ($Architecture -eq "arm64") { "arm64" } else { "x64" }
 $sdk = Join-Path $ProjectRoot "Bonjour SDK"
 $required = @(
@@ -119,14 +120,14 @@ if ($LASTEXITCODE -ne 0) {
 
 & $msbuild `
     (Join-Path $sourceDir "mDNSWindows\DLL\dnssd.vcxproj") `
-    /m /t:Build /p:Configuration=Release /p:Platform=$msbuildPlatform
+    /m /t:Build /p:Configuration=Release /p:Platform=$msbuildPlatform /p:PlatformToolset=$platformToolset
 if ($LASTEXITCODE -ne 0) {
     throw "dnssd.dll build failed."
 }
 
 & $msbuild `
     (Join-Path $sourceDir "mDNSWindows\SystemService\mDNSResponder.vcxproj") `
-    /m /t:Build /p:Configuration=Release /p:Platform=$msbuildPlatform
+    /m /t:Build /p:Configuration=Release /p:Platform=$msbuildPlatform /p:PlatformToolset=$platformToolset
 if ($LASTEXITCODE -ne 0) {
     throw "mDNSResponder.exe build failed."
 }

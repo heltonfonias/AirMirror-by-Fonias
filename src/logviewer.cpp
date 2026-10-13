@@ -15,7 +15,7 @@
 
 LogViewer::LogViewer(const QString &path, QWidget *parent)
     : QDialog(parent), m_file(path) {
-    setWindowTitle("Current log — uxplay-windows");
+    setWindowTitle("AirMirror log");
     resize(900, 550);
     auto *layout = new QVBoxLayout(this);
     auto *location = new QLabel(QDir::toNativeSeparators(path), this);

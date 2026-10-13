@@ -43,13 +43,13 @@ bool SessionLog::start(const QString &directory) {
     QString root = directory;
     if (root.isEmpty()) {
         root = QDir(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation))
-            .filePath("uxplay-windows/logs");
+            .filePath("Fonias/AirMirror/logs");
     }
     if (!QDir().mkpath(root)) {
         m_error = "Unable to create the log folder: " + QDir::toNativeSeparators(root);
         return false;
     }
-    const QString name = "uxplay-" + QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss-zzz")
+    const QString name = "airmirror-" + QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss-zzz")
         + "-" + QString::number(GetCurrentProcessId())
         + "-" + QUuid::createUuid().toString(QUuid::Id128).left(8) + ".log";
     m_path = QDir(root).absoluteFilePath(name);

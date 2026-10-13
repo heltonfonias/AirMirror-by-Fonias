@@ -2,28 +2,32 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
      
-  <!-- version number is mayor.minor.zero.uxplayversion -->
+  <!-- AirMirror ships UxPlay in-process and has its own upgrade identity. -->
   <Package
-    Id="uxplaywindows"
-    Name="uxplay-windows"
-    Manufacturer="leapbtw"
-    Version="2.1.0.1736"
-    UpgradeCode="00000eaf-dcca-458f-ab77-aaef11ce4ba8"
+    Id="AirMirrorByFonias"
+    Name="AirMirror by Fonias"
+    Manufacturer="Fonias"
+    Version="1.0.0"
+    UpgradeCode="edad2f99-352d-46ee-8b93-88c9c1c34d62"
     Language="1033"
     Scope="perMachine">
 
     <MajorUpgrade
-      DowngradeErrorMessage="A newer version of uxplay-windows is already installed." />
+      DowngradeErrorMessage="A newer version of AirMirror is already installed." />
     <WixVariable Id="WixUILicenseRtf" Value="./docs/LICENSE.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="./stuff/AirMirror-banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="./stuff/AirMirror-dialog.bmp" />
+    <Icon Id="AirMirrorIcon" SourceFile="./stuff/AirMirror.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AirMirrorIcon" />
     <MediaTemplate EmbedCab="yes" />
 
     <ui:WixUI Id="WixUI_FeatureTree" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLDIR" Name="uxplay-windows" />
+      <Directory Id="INSTALLDIR" Name="AirMirror by Fonias" />
     </StandardDirectory>
 
-    <Feature Id="MainFeature" Title="uxplay-windows" Level="1">
+    <Feature Id="MainFeature" Title="AirMirror by Fonias" Level="1">
       <ComponentGroupRef Id="AppFiles" />
       <ComponentGroupRef Id="AppExe" />
       <ComponentRef Id="ProgramMenuShortcutComponent" />
@@ -39,15 +43,15 @@
 
     <ComponentGroup Id="AppFiles" Directory="INSTALLDIR">
       <Files Include="./release/**">
-        <Exclude Files="./release/uxplay-windows.exe;**/*.pdb;**/uxplay-windows.exe" />
+        <Exclude Files="./release/AirMirror.exe;**/*.pdb;**/AirMirror.exe" />
       </Files>
     </ComponentGroup>
 
     <ComponentGroup Id="AppExe" Directory="INSTALLDIR">
       <Component Id="AppExeComponent"
-                 Guid="e5f23b9b-b726-4738-85ba-63892cff1924">
+                 Guid="75fd98d2-ee1c-4649-ba6b-d5b0a65542cb">
         <File Id="AppExeFile"
-              Source="./release/uxplay-windows.exe"
+              Source="./release/AirMirror.exe"
               KeyPath="yes" />
       </Component>
     </ComponentGroup>
@@ -56,37 +60,37 @@
     <StandardDirectory Id="ProgramMenuFolder" />
 
     <Component Id="ProgramMenuShortcutComponent"
-               Guid="cd347554-b38e-47f5-801d-152447366101"
+               Guid="eb0581df-bee5-45d4-9328-4117d44ae6af"
                Directory="ProgramMenuFolder">
       <RegistryValue
         Root="HKCU"
-        Key="Software\leapbtw\uxplay-windows"
+        Key="Software\Fonias\AirMirror"
         Name="ProgramMenuShortcut"
         Type="integer"
         Value="1"
         KeyPath="yes" />
       <Shortcut
-        Name="uxplay-windows"
+        Name="AirMirror by Fonias"
         Directory="ProgramMenuFolder"
-        Target="[INSTALLDIR]uxplay-windows.exe"
+        Target="[INSTALLDIR]AirMirror.exe"
         WorkingDirectory="INSTALLDIR"
         Advertise="no" />
     </Component>
 
     <Component Id="DesktopShortcutComponent"
-               Guid="63bb69df-4292-4053-848c-fb369bed6273"
+               Guid="de016600-63b9-40fc-a9be-4f2d63fce58f"
                Directory="DesktopFolder">
       <RegistryValue
         Root="HKCU"
-        Key="Software\leapbtw\uxplay-windows"
+        Key="Software\Fonias\AirMirror"
         Name="DesktopShortcut"
         Type="integer"
         Value="1"
         KeyPath="yes" />
       <Shortcut
-        Name="uxplay-windows"
+        Name="AirMirror by Fonias"
         Directory="DesktopFolder"
-        Target="[INSTALLDIR]uxplay-windows.exe"
+        Target="[INSTALLDIR]AirMirror.exe"
         WorkingDirectory="INSTALLDIR"
         Advertise="no" />
     </Component>

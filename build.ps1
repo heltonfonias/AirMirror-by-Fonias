@@ -11,8 +11,6 @@ param(
 
     [string]$MsysRoot = $(if ($env:MSYS2_ROOT) { $env:MSYS2_ROOT } else { "C:\msys64" }),
 
-    [string]$BeaconPython = $env:BEACON_PYTHON,
-
     [switch]$SkipBootstrap,
 
     [switch]$SkipInstaller
@@ -30,7 +28,6 @@ $architectureConfig = if ($Architecture -eq "arm64") {
         PackagePrefix = "^mingw-w64-clang-aarch64-"
         BonjourBinDirectory = "arm64"
         WixArchitecture = "arm64"
-        PythonArchitecturePattern = "^(?i:arm64|aarch64)$"
     }
 } else {
     @{
@@ -40,7 +37,6 @@ $architectureConfig = if ($Architecture -eq "arm64") {
         PackagePrefix = "^mingw-w64-ucrt-x86_64-"
         BonjourBinDirectory = "x64"
         WixArchitecture = "x64"
-        PythonArchitecturePattern = "^(?i:amd64|x86_64)$"
     }
 }
 $environmentName = $architectureConfig.EnvironmentName
@@ -48,7 +44,6 @@ $prefix = Join-Path $MsysRoot $environmentName
 $runtimeBin = Join-Path $prefix "bin"
 $outDir = Join-Path $projectRoot "out\$Architecture"
 $buildDir = Join-Path $outDir "build"
-$beaconOutDir = Join-Path $outDir "beacon"
 $artifactDir = Join-Path $outDir "artifacts"
 $stageDir = Join-Path $projectRoot "release"
 $bonjourSdk = Join-Path $projectRoot "Bonjour SDK"
@@ -115,97 +110,7 @@ function Set-BuildEnvironment {
     $env:BONJOUR_SDK = $bonjourSdk
 }
 
-function Get-BeaconPython {
-    $candidates = @()
-    if ($BeaconPython) {
-        $candidates += $BeaconPython
-    }
-    if ($env:pythonLocation) {
-        $candidates += (Join-Path $env:pythonLocation "python.exe")
-    }
-
-    $windowsPython = Get-Command python.exe -All -ErrorAction SilentlyContinue |
-        Where-Object {
-            $_.Source -and
-            -not $_.Source.StartsWith(
-                $MsysRoot,
-                [StringComparison]::OrdinalIgnoreCase
-            )
-        } |
-        Select-Object -First 1
-    if ($windowsPython) {
-        $candidates += $windowsPython.Source
-    }
-
-    if ($Architecture -eq "x64") {
-        # Preserve compatibility with existing local x64 MSYS2 setups. CI
-        # always provides native Windows CPython through actions/setup-python.
-        $candidates += (Join-Path $runtimeBin "python.exe")
-    }
-
-    $selected = $candidates |
-        Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
-        Select-Object -First 1
-    if (-not $selected) {
-        throw (
-            "Python for the Bluetooth beacon was not found. Install CPython " +
-            "3.14 $Architecture or pass -BeaconPython C:\path\to\python.exe."
-        )
-    }
-    return (Resolve-Path -LiteralPath $selected).Path
-}
-
-function Test-MsysPython {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Python
-    )
-
-    return $Python.StartsWith(
-        $MsysRoot,
-        [StringComparison]::OrdinalIgnoreCase
-    )
-}
-
-function Assert-BeaconPythonPackages {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Python
-    )
-
-    if (-not (Test-MsysPython -Python $Python)) {
-        $pythonArchitecture = (
-            & $Python -c "import platform; print(platform.machine())"
-        ).Trim()
-        if (
-            $LASTEXITCODE -ne 0 -or
-            $pythonArchitecture -notmatch $architectureConfig.PythonArchitecturePattern
-        ) {
-            throw (
-                "The Bluetooth beacon requires native Windows $Architecture " +
-                "Python; $Python reports '$pythonArchitecture'."
-            )
-        }
-    }
-
-    & $Python -c (
-        "import PyInstaller;" +
-        "import psutil;" +
-        "import winrt.windows.foundation;" +
-        "import winrt.windows.foundation.collections;" +
-        "import winrt.windows.devices.bluetooth.advertisement;" +
-        "import winrt.windows.storage.streams"
-    )
-    if ($LASTEXITCODE -ne 0) {
-        throw (
-            "Required beacon packages are missing from $Python. " +
-            "Run .\build.ps1 bootstrap first."
-        )
-    }
-}
-
 function Install-Dependencies {
-    $beaconPython = Get-BeaconPython
     Set-BuildEnvironment
     $pacman = Join-Path $MsysRoot "usr\bin\pacman.exe"
     $packageList = Join-Path $projectRoot $architectureConfig.DependencyFile
@@ -218,28 +123,6 @@ function Install-Dependencies {
         -FilePath $pacman `
         -Arguments (@("--noconfirm", "-S", "--needed") + $packages)
 
-    Write-Host "Installing/verifying beacon packages with $beaconPython..."
-    $pipArguments = @(
-        "-m",
-        "pip",
-        "install",
-        "--disable-pip-version-check"
-    )
-    if (Test-MsysPython -Python $beaconPython) {
-        $pipArguments += "--break-system-packages"
-    } else {
-        # Native Windows CPython can consume the published WinRT wheels.
-        # Do not fall back to the fragile MinGW source build in CI.
-        $pipArguments += "--only-binary=:all:"
-    }
-    $pipArguments += @(
-        "--requirement",
-        (Join-Path $projectRoot "packaging\python-requirements.txt")
-    )
-    Invoke-Native `
-        -FilePath $beaconPython `
-        -Arguments $pipArguments
-    Assert-BeaconPythonPackages -Python $beaconPython
 }
 
 function Ensure-BonjourSdk {
@@ -249,10 +132,8 @@ function Ensure-BonjourSdk {
 }
 
 function Build-Application {
-    $beaconPython = Get-BeaconPython
     Set-BuildEnvironment
     Assert-BuildTools
-    Assert-BeaconPythonPackages -Python $beaconPython
     Ensure-BonjourSdk
     New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
 
@@ -272,33 +153,6 @@ function Build-Application {
         -FilePath $cmake `
         -Arguments @("--build", $buildDir, "--parallel")
 
-    $beaconSource = Join-Path $projectRoot "libuxplay\Bluetooth_LE_beacon"
-    $beaconDist = Join-Path $beaconOutDir "dist"
-    $beaconWork = Join-Path $beaconOutDir "work"
-    $beaconSpec = Join-Path $beaconOutDir "spec"
-    New-Item -ItemType Directory -Force -Path $beaconDist | Out-Null
-    New-Item -ItemType Directory -Force -Path $beaconWork | Out-Null
-    New-Item -ItemType Directory -Force -Path $beaconSpec | Out-Null
-
-    Invoke-Native `
-        -FilePath $beaconPython `
-        -WorkingDirectory $beaconSource `
-        -Arguments @(
-            "-m", "PyInstaller",
-            "--onefile",
-            "--name", "uxplay-bluetooth-beacon",
-            "--distpath", $beaconDist,
-            "--workpath", $beaconWork,
-            "--specpath", $beaconSpec,
-            "--hidden-import=winrt.windows.foundation",
-            "--hidden-import=winrt.windows.foundation.collections",
-            "--hidden-import=winrt.windows.devices.bluetooth.advertisement",
-            "--hidden-import=winrt.windows.storage.streams",
-            "--hidden-import=psutil",
-            "--console",
-            "--noconfirm",
-            "uxplay-beacon-windows.py"
-        )
 }
 
 function Copy-DirectoryContents {
@@ -322,7 +176,6 @@ function Write-BuildManifest {
     $pacman = Join-Path $MsysRoot "usr\bin\pacman.exe"
     $cmake = Join-Path $runtimeBin "cmake.exe"
     $python = Join-Path $runtimeBin "python.exe"
-    $beaconPython = Get-BeaconPython
     $gstInspect = Join-Path $runtimeBin "gst-inspect-1.0.exe"
     $qmake = Join-Path $runtimeBin "qmake6.exe"
 
@@ -352,7 +205,6 @@ function Write-BuildManifest {
         libuxplayCommit = (& git -C $projectRoot rev-parse HEAD:libuxplay).Trim()
         cmake = (& $cmake --version | Select-Object -First 1)
         msys2Python = (& $python --version 2>&1)
-        beaconPython = (& $beaconPython --version 2>&1)
         gstreamer = (& $gstInspect --version | Select-Object -Last 1)
         qt = $(if (Test-Path -LiteralPath $qmake) {
             (& $qmake -query QT_VERSION)
@@ -372,7 +224,15 @@ function Write-BuildManifest {
 function Stage-Runtime {
     Set-BuildEnvironment
     if (Test-Path -LiteralPath $stageDir) {
-        Remove-Item -LiteralPath $stageDir -Recurse -Force
+        $resolvedStage = [IO.Path]::GetFullPath($stageDir)
+        $resolvedRoot = [IO.Path]::GetFullPath($projectRoot)
+        if (-not $resolvedStage.StartsWith(
+            $resolvedRoot + [IO.Path]::DirectorySeparatorChar,
+            [StringComparison]::OrdinalIgnoreCase
+        )) {
+            throw "Refusing to replace unexpected staging path: $resolvedStage"
+        }
+        Remove-Item -LiteralPath $resolvedStage -Recurse -Force
     }
 
     New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
@@ -385,12 +245,8 @@ function Stage-Runtime {
         Out-Null
 
     Copy-Item `
-        (Join-Path $buildDir "uxplay-windows.exe") `
-        (Join-Path $stageDir "uxplay-windows.exe") `
-        -Force
-    Copy-Item `
-        (Join-Path $beaconOutDir "dist\uxplay-bluetooth-beacon.exe") `
-        (Join-Path $stageDir "uxplay-bluetooth-beacon.exe") `
+        (Join-Path $buildDir "AirMirror.exe") `
+        (Join-Path $stageDir "AirMirror.exe") `
         -Force
     Copy-Item `
         (Join-Path $bonjourSdk "Bin\$($architectureConfig.BonjourBinDirectory)\dnssd.dll") `
@@ -405,8 +261,12 @@ function Stage-Runtime {
         (Join-Path $stageDir "LICENSE.rtf") `
         -Force
     Copy-Item `
-        (Join-Path $projectRoot "stuff\newicon.ico") `
+        (Join-Path $projectRoot "stuff\AirMirror.ico") `
         (Join-Path $stageDir "resources\icon.ico") `
+        -Force
+    Copy-Item `
+        (Join-Path $projectRoot "stuff\AirMirror.png") `
+        (Join-Path $stageDir "resources\icon.png") `
         -Force
     Copy-Item `
         (Join-Path $projectRoot "stuff\uxplay_arguments_list.txt") `
@@ -425,7 +285,7 @@ function Stage-Runtime {
             "--no-translations",
             "--no-compiler-runtime",
             "--dir", $stageDir,
-            (Join-Path $stageDir "uxplay-windows.exe")
+            (Join-Path $stageDir "AirMirror.exe")
         )
 
     $gstPluginDir = Join-Path $prefix "lib\gstreamer-1.0"
@@ -559,7 +419,7 @@ function Ensure-Wix {
 
 function Build-Artifacts {
     New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
-    $zip = Join-Path $artifactDir "uxplay-windows-$Architecture-portable.zip"
+    $zip = Join-Path $artifactDir "AirMirror-by-Fonias-$Architecture-portable.zip"
     if (Test-Path -LiteralPath $zip) {
         Remove-Item -LiteralPath $zip -Force
     }
@@ -571,7 +431,7 @@ function Build-Artifacts {
     if (-not $SkipInstaller) {
         Ensure-Wix
         $dotnet = (Get-Command dotnet.exe -ErrorAction Stop).Source
-        $msi = Join-Path $artifactDir "uxplay-windows-$Architecture.msi"
+        $msi = Join-Path $artifactDir "AirMirror-by-Fonias-$Architecture.msi"
         $wixPdb = [IO.Path]::ChangeExtension($msi, ".wixpdb")
         if (Test-Path -LiteralPath $wixPdb) {
             Remove-Item -LiteralPath $wixPdb -Force
