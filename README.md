@@ -1,8 +1,28 @@
 # AirMirror by Fonias
 
+<p align="center">
+  <a href="https://airplay.heltonfonias.com/" title="Visit the AirMirror website">
+    <img src="stuff/readme-banner.png" alt="AirMirror by Fonias — Your iPhone on your PC. Click to visit airplay.heltonfonias.com." width="100%" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://airplay.heltonfonias.com/">Website</a> ·
+  <a href="https://github.com/heltonfonias/AirMirror-by-Fonias/releases/latest">Download AirMirror</a> ·
+  <a href="https://github.com/heltonfonias/AirMirror-by-Fonias/issues">Support the project</a>
+</p>
+
 **Mirror an iPhone to a Windows PC with one receiver app and one tray icon.** AirMirror is a Windows desktop interface built around the open-source [UxPlay](https://github.com/FDH2/UxPlay) AirPlay receiver. The receiver library runs inside `AirMirror.exe`; users do not need a separate UxPlay installation or a second UxPlay tray app. When mirroring starts, the video appears in its own renderer window inside the same process.
 
-![AirMirror icon](stuff/AirMirror.png)
+## Screenshots
+
+These are the supplied AirMirror captures. Click either image to visit the website. The linked banner above is generated from the logo and these captures by `scripts/Create-ReadmeBanner.ps1`.
+
+<p align="center">
+  <a href="https://airplay.heltonfonias.com/"><img src="stuff/screenshots/airmirror-windows-desktop.png" alt="AirMirror and its receiver running on a Windows desktop" width="720" /></a>
+  &nbsp;&nbsp;
+  <a href="https://airplay.heltonfonias.com/"><img src="stuff/screenshots/airmirror-iphone.png" alt="The iPhone Home Screen used in the AirMirror example" width="180" /></a>
+</p>
 
 ## Download and install
 
