@@ -15,6 +15,8 @@ try {
     if ($remote -notmatch '(^https://github\.com/heltonfonias/AirMirror-by-Fonias(\.git)?$|^git@github\.com:heltonfonias/AirMirror-by-Fonias(\.git)?$)') {
         throw 'origin must point to the Fonias AirMirror repository.'
     }
+    & gh api user --jq .login | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'GitHub CLI authentication is required.' }
     $unstaged = @(git diff --name-only)
     $untracked = @(git ls-files --others --exclude-standard)
     if ($unstaged.Count -gt 0 -or $untracked.Count -gt 0) {
@@ -40,8 +42,21 @@ try {
     & git commit -m $Message
     if ($LASTEXITCODE -ne 0) { throw 'Commit failed.' }
 
-    & (Join-Path $root 'build.ps1') package -Architecture x64 -SkipBootstrap:$SkipBootstrap
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Build failed; nothing was published.' }
+    $environmentNames = @('APPDATA', 'LOCALAPPDATA', 'DOTNET_CLI_HOME',
+                          'NUGET_PACKAGES', 'PATH', 'MSYSTEM',
+                          'BONJOUR_SDK_HOME', 'BONJOUR_SDK')
+    $originalEnvironment = @{}
+    foreach ($name in $environmentNames) {
+        $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+    }
+    try {
+        & (Join-Path $root 'build.ps1') package -Architecture x64 -SkipBootstrap:$SkipBootstrap
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Build failed; nothing was published.' }
+    } finally {
+        foreach ($name in $environmentNames) {
+            [Environment]::SetEnvironmentVariable($name, $originalEnvironment[$name], 'Process')
+        }
+    }
     $tag = "v$version"
     & git tag -a $tag -m "AirMirror by Fonias $version"
     if ($LASTEXITCODE -ne 0) { throw 'Tag failed.' }

@@ -24,8 +24,12 @@ if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Source packaging failed.' }
     "$hash  $(Split-Path $_ -Leaf)"
 } | Set-Content -LiteralPath $checksums -Encoding ascii
 
-& gh release view $tag --repo heltonfonias/AirMirror-by-Fonias --json tagName *> $null
-if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists. Refusing to replace it." }
+$releases = & gh release list --repo heltonfonias/AirMirror-by-Fonias `
+    --limit 100 --json tagName
+if ($LASTEXITCODE -ne 0) { throw 'Could not inspect existing GitHub releases.' }
+if (@($releases | ConvertFrom-Json | Where-Object tagName -eq $tag).Count -gt 0) {
+    throw "Release $tag already exists. Refusing to replace it."
+}
 & gh release create $tag $msi $portable $source $checksums `
     --repo heltonfonias/AirMirror-by-Fonias `
     --verify-tag `
