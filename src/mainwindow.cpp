@@ -8,6 +8,7 @@
 #include <io.h>
 
 #include <QProcess>
+#include <QProgressDialog>
 #include <QAction>
 #include <QApplication>
 #include <QCloseEvent>
@@ -73,6 +74,42 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     ensureSettingsFileExists();
     setupTray();
     setupUI();
+    m_updateManager = new UpdateManager(this);
+    connect(m_updateManager, &UpdateManager::updateFound, this,
+            [this](const UpdateInfo &update) {
+        m_availableUpdate = update;
+        m_hasUpdate = true;
+        m_updateButton->setText("Update available");
+        m_updateButton->setEnabled(true);
+        if (m_manualUpdateCheck) showUpdatePrompt();
+        else m_tray->showMessage("AirMirror update", "Version " + update.version +
+                                 " is ready. Open AirMirror to install it.",
+                                 QSystemTrayIcon::Information, 7000);
+        m_manualUpdateCheck = false;
+    });
+    connect(m_updateManager, &UpdateManager::upToDate, this, [this]() {
+        m_updateButton->setText("Updates");
+        m_updateButton->setEnabled(true);
+        if (m_manualUpdateCheck)
+            QMessageBox::information(this, "AirMirror updates",
+                                     "You have the latest version (" +
+                                     QCoreApplication::applicationVersion() + ").");
+        m_manualUpdateCheck = false;
+    });
+    connect(m_updateManager, &UpdateManager::checkFailed, this,
+            [this](const QString &message) {
+        m_updateButton->setText("Updates");
+        m_updateButton->setEnabled(true);
+        if (m_manualUpdateCheck)
+            QMessageBox::warning(this, "Update check failed", message);
+        else qWarning().noquote() << "Update check failed:" << message;
+        m_manualUpdateCheck = false;
+    });
+    QTimer::singleShot(8000, m_updateManager, &UpdateManager::check);
+    auto *updateTimer = new QTimer(this);
+    updateTimer->setInterval(6 * 60 * 60 * 1000);
+    connect(updateTimer, &QTimer::timeout, m_updateManager, &UpdateManager::check);
+    updateTimer->start();
 
     // Bonjour improves device discovery, but the server can also run without it.
     if (ensureBonjourServiceInstalled()) {
@@ -265,14 +302,17 @@ void MainWindow::setupUI() {
     m_stopButton = new QPushButton("Stop", central);
     m_settingsBtn = new QPushButton("Settings", central);
     auto *logButton = new QPushButton("Log", central);
+    m_updateButton = new QPushButton("Updates", central);
     connect(m_startButton, &QPushButton::clicked, this, &MainWindow::startReceiver);
     connect(m_stopButton, &QPushButton::clicked, this, &MainWindow::stopReceiver);
     connect(m_settingsBtn, &QPushButton::clicked, this, &MainWindow::openSettingsDialog);
     connect(logButton, &QPushButton::clicked, this, &MainWindow::openCurrentLog);
+    connect(m_updateButton, &QPushButton::clicked, this, &MainWindow::checkForUpdates);
     actions->addWidget(m_startButton);
     actions->addWidget(m_stopButton);
     actions->addWidget(m_settingsBtn);
     actions->addWidget(logButton);
+    actions->addWidget(m_updateButton);
     actions->addStretch();
     receiverCard->addSpacing(8);
     receiverCard->addLayout(actions);
@@ -611,6 +651,7 @@ void MainWindow::setupTray() {
     m_stopAction = m_trayMenu->addAction("Stop receiving", this, &MainWindow::stopReceiver);
     m_trayMenu->addAction("Settings", this, &MainWindow::openSettingsDialog);
     m_trayMenu->addAction("Open current log", this, &MainWindow::openCurrentLog);
+    m_trayMenu->addAction("Check for updates", this, &MainWindow::checkForUpdates);
     m_trayMenu->addAction("UxPlay arguments reference", this, &MainWindow::openListArgsFile);
     m_trayMenu->addAction("License information", this, &MainWindow::showLicense);
     m_trayMenu->addSeparator();
@@ -632,6 +673,61 @@ void MainWindow::showFromTray() {
     showNormal();
     raise();
     activateWindow();
+}
+
+void MainWindow::checkForUpdates() {
+    if (m_hasUpdate) {
+        showUpdatePrompt();
+        return;
+    }
+    m_manualUpdateCheck = true;
+    m_updateButton->setText("Checking...");
+    m_updateButton->setEnabled(false);
+    m_updateManager->check();
+}
+
+void MainWindow::showUpdatePrompt() {
+    if (!m_hasUpdate || m_updateInProgress) return;
+    showFromTray();
+    const QString message = QString(
+        "AirMirror %1 is available. Download the verified installer and install it now?\n\n"
+        "Windows will request administrator approval. Mirroring will stop when installation begins."
+    ).arg(m_availableUpdate.version);
+    if (QMessageBox::question(this, "AirMirror update", message,
+                              QMessageBox::Yes | QMessageBox::No,
+                              QMessageBox::Yes) != QMessageBox::Yes) return;
+
+    auto *progress = new QProgressDialog("Downloading AirMirror " + m_availableUpdate.version,
+                                         QString(), 0, 100, this);
+    progress->setWindowTitle("AirMirror update");
+    progress->setCancelButton(nullptr);
+    progress->setAutoClose(false);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setAttribute(Qt::WA_DeleteOnClose);
+    connect(m_updateManager, &UpdateManager::downloadProgress, progress,
+            [progress](qint64 received, qint64 total) {
+        if (total > 0) progress->setValue(static_cast<int>(received * 100 / total));
+    });
+    connect(m_updateManager, &UpdateManager::downloadFailed, progress,
+            [this, progress](const QString &error) {
+        m_updateInProgress = false;
+        m_updateButton->setEnabled(true);
+        progress->close();
+        QMessageBox::warning(this, "Update failed", error);
+    });
+    connect(m_updateManager, &UpdateManager::installerReady, progress,
+            [this, progress](const QString &path) {
+        m_updateInProgress = false;
+        m_updateButton->setEnabled(true);
+        progress->close();
+        if (UpdateManager::launchInstaller(path)) quit();
+        else QMessageBox::warning(this, "Update not started",
+                                  "Windows did not start the installer. You can try again from Updates.");
+    });
+    progress->show();
+    m_updateInProgress = true;
+    m_updateButton->setEnabled(false);
+    m_updateManager->download(m_availableUpdate);
 }
 
 void MainWindow::startReceiver() {
@@ -879,10 +975,8 @@ bool MainWindow::ensureBonjourServiceInstalled() {
             "Continuing Without Bonjour",
             "You can continue without Bonjour, but the following conditions "
             "must be met:\n\n"
-            "1. Both devices must be connected to the same local network.\n"
-            "2. Bluetooth must be enabled on both devices.\n"
-            "3. Bluetooth Discovery must remain enabled in uxplay-windows.\n\n"
-            "Without Bonjour, your devices may still be unable to find each other."
+            "Both devices must be connected to the same local network.\n"
+            "Without Bonjour, your iPhone may be unable to discover this PC."
         );
         return true;
     }

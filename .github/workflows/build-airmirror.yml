@@ -1,0 +1,52 @@
+name: Build AirMirror installer
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    runs-on: windows-2022
+    steps:
+      - name: Check out source and libuxplay
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up MSYS2 UCRT64
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          cache: true
+
+      - name: Set up .NET for WiX
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore Bonjour SDK cache
+        uses: actions/cache@v4
+        with:
+          path: Bonjour SDK
+          key: bonjour-x64-2881-${{ hashFiles('mdnsresponder-patches/2881.patch', 'scripts/build-bonjour.ps1') }}
+
+      - name: Compile, bundle, test, and build MSI
+        shell: powershell
+        env:
+          MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
+        run: .\build.ps1 package -Architecture x64
+
+      - name: Upload installer and portable app
+        uses: actions/upload-artifact@v4
+        with:
+          name: AirMirror-by-Fonias-x64-${{ github.sha }}
+          path: out/x64/artifacts/*
+          if-no-files-found: error

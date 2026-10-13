@@ -1,6 +1,6 @@
 # AirMirror icon
 
-Generated for AirMirror by Fonias on 2026-10-12 using OpenAI's built-in image generation tool. `AirMirror.png` is the original generated raster asset. `AirMirror.ico` was derived from it with `tools/Build-AirMirrorIcon.ps1` and contains 16, 24, 32, 48, 64, 128, and 256 pixel sizes. This is an original illustrative mark, not an Apple or UxPlay logo.
+Generated for AirMirror by Fonias on 2026-10-12 using OpenAI's built-in image generation tool. `AirMirror.png` is the original generated raster asset. `AirMirror.ico` was derived from it with `scripts/Build-AirMirrorIcon.ps1` and contains 16, 24, 32, 48, 64, 128, and 256 pixel sizes. This is an original illustrative mark, not an Apple or UxPlay logo.
 
 Prompt:
 

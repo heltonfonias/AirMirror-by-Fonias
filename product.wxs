@@ -7,7 +7,7 @@
     Id="AirMirrorByFonias"
     Name="AirMirror by Fonias"
     Manufacturer="Fonias"
-    Version="1.0.0"
+    Version="$(var.AppVersion)"
     UpgradeCode="edad2f99-352d-46ee-8b93-88c9c1c34d62"
     Language="1033"
     Scope="perMachine">

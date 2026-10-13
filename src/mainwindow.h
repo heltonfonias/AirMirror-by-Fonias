@@ -11,6 +11,7 @@
 #include <QCheckBox>
 #include <QMessageBox>
 #include <QPointer>
+#include "updatemanager.h"
 
 class QMenu;
 class QAction;
@@ -40,6 +41,7 @@ private slots:
     void openListArgsFile();
     void openCurrentLog();
     void quit();
+    void checkForUpdates();
     void onAirplayStarted();
     void onAirplayStopped();
     void onAirplayError(const QString &message);
@@ -52,6 +54,7 @@ private:
     void setupTray();
     void setupUI();
     void updateStatus();
+    void showUpdatePrompt();
     void applyRendererAndFullscreenArgs(QStringList &args);
 
     QStringList getArgumentsFromFile();
@@ -79,6 +82,12 @@ private:
     QLabel *m_networkLabel = nullptr;
     QPushButton *m_startButton = nullptr;
     QPushButton *m_stopButton = nullptr;
+    QPushButton *m_updateButton = nullptr;
+    UpdateManager *m_updateManager = nullptr;
+    UpdateInfo m_availableUpdate;
+    bool m_hasUpdate = false;
+    bool m_manualUpdateCheck = false;
+    bool m_updateInProgress = false;
 
     QPointer<AirPlayWorker> m_worker;
     QPointer<LogViewer> m_logViewer;

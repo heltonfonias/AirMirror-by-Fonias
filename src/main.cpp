@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "sessionlog.h"
 #include "windowappearance.h"
+#include "updatemanager.h"
 #include <QApplication>
 #include <QDir>
 #include <QElapsedTimer>
@@ -179,6 +180,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     app.setOrganizationName("Fonias");
     app.setApplicationName("AirMirror");
+    app.setApplicationVersion(AIRMIRROR_VERSION);
     app.setProperty("sessionLogPath", loggingReady ? sessionLog.path() : QString());
     if (!loggingReady) {
         QMessageBox::warning(nullptr, "Logging unavailable", sessionLog.errorString());
@@ -214,6 +216,9 @@ int main(int argc, char *argv[]) {
 
     if (app.arguments().contains("--self-test")) {
         return runRuntimeSelfTest(appPath);
+    }
+    if (app.arguments().contains("--self-test-updates")) {
+        return UpdateManager::selfTest() ? 0 : 3;
     }
 
 #ifdef _WIN32

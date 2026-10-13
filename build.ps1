@@ -49,6 +49,10 @@ $stageDir = Join-Path $projectRoot "release"
 $bonjourSdk = Join-Path $projectRoot "Bonjour SDK"
 $featuresFile = Join-Path $projectRoot "packaging\gstreamer-features.txt"
 $wixCacheDir = Join-Path $projectRoot ".wix"
+$appVersion = (Get-Content -LiteralPath (Join-Path $projectRoot "VERSION") -TotalCount 1).Trim()
+if ($appVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+    throw "VERSION must contain a three-part numeric version."
+}
 
 function Invoke-Native {
     param(
@@ -445,7 +449,8 @@ function Build-Artifacts {
                 "-arch", $architectureConfig.WixArchitecture,
                 "-out", $msi,
                 "-pdbtype", "none",
-                "-ext", "WixToolset.UI.wixext"
+                "-ext", "WixToolset.UI.wixext",
+                "-d", "AppVersion=$appVersion"
             )
         Invoke-Native `
             -FilePath $dotnet `

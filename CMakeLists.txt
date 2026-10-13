@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
-project(AirPlayGUI LANGUAGES CXX)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" AIRMIRROR_VERSION LIMIT_COUNT 1)
+project(AirMirror VERSION ${AIRMIRROR_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,7 +21,11 @@ add_executable(AirMirror WIN32
     src/mdns_responder.cpp
     src/resources.rc
     src/windowappearance.h
+    src/updatemanager.cpp
+    src/updatemanager.h
 )
+
+target_compile_definitions(AirMirror PRIVATE AIRMIRROR_VERSION="${PROJECT_VERSION}")
 
 target_link_libraries(AirMirror PRIVATE
     Qt6::Core
